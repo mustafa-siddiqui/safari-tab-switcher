@@ -25,5 +25,10 @@
             ],
             "run_at": "document_idle"
         }
-    ]
+    ],
+    "icons": {
+        "32": "icons/melon.svg",
+        "48": "icons/melon.svg",
+        "128": "icons/melon.svg"
+    }
 }
