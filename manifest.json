@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "Tab Switcher",
+    "version": "1.0",
+    "description": "Keyboard-driven tab switching for Safari",
+    "permissions": [
+        "tabs"
+    ],
+    "background": {
+        "scripts": [
+            "background.js"
+        ],
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "switcher.css"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
+}
