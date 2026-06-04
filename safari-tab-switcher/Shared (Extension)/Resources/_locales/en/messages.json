@@ -1,0 +1,10 @@
+{
+    "extension_name": {
+        "message": "safari-tab-switcher",
+        "description": "The display name for the extension."
+    },
+    "extension_description": {
+        "message": "This is safari-tab-switcher. You should tell us what your extension does here.",
+        "description": "Description of what the extension does."
+    }
+}
