@@ -28,7 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         CFNotificationCenterAddObserver(notifyCenter, observer, { (center, observer, name, object, userInfo) in
             let mySelf = Unmanaged<AppDelegate>.fromOpaque(observer!).takeUnretainedValue()
             mySelf.handleDarwinNotification()
-        }, notificationName, nil, .deliverImmediately)
+        }, notificationName.rawValue, nil, .deliverImmediately)
         
         tabManager.onSelect = { [weak self] selectedTab in
             self?.switchTo(tab: selectedTab)
