@@ -60,27 +60,26 @@ async function handleToggleSwitcher() {
             sortedTabs.push(tab);
         }
 
-        // Send to native Swift handler to display the UI
+        // Send tabs to the native handler to display the overlay. The native
+        // handler keeps THIS request open until the user picks a tab in the
+        // macOS app, then resolves it with the chosen WebExtension tab id.
+        // We must do the actual switch here, because only background.js knows
+        // the real browser.tabs ids (matching by URL would break on duplicates).
         const response = await browser.runtime.sendNativeMessage("application.id", {
             action: "showSwitcher",
             tabs: sortedTabs
         });
-        
-        console.log("Native response:", response);
+
+        const selectedTabId = response && response.selectedTabId;
+        if (typeof selectedTabId === "number" && selectedTabId >= 0) {
+            await browser.tabs.update(selectedTabId, { active: true });
+            const selected = sortedTabs.find(t => t.id === selectedTabId);
+            if (selected && selected.windowId != null) {
+                await browser.windows.update(selected.windowId, { focused: true });
+            }
+        }
 
     } catch (error) {
         console.error("Error toggling switcher:", error);
     }
 }
-
-// Listen for messages FROM the native Swift code (e.g., to actually perform the switch)
-// Note: SFSafariApplication.dispatchMessage uses browser.runtime.onMessage
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "switchToTab" && request.tabId) {
-        browser.tabs.update(request.tabId, { active: true });
-        if (request.windowId) {
-             browser.windows.update(request.windowId, { focused: true });
-        }
-        sendResponse({ success: true });
-    }
-});

@@ -111,22 +111,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func switchTo(tab: TabItem) {
-        // Send a message back to the Safari Extension to perform the actual switch
-        let userInfo: [String: Any] = [
-            "action": "switchToTab",
-            "tabId": tab.id,
-            "windowId": tab.windowId ?? 0
-        ]
-        
-        SFSafariApplication.dispatchMessage(
-            withName: "switchToTab",
-            toExtensionWithIdentifier: "personal.safari-tab-switcher.Extension",
-            userInfo: userInfo
-        ) { error in
-            if let error = error {
-                print("Error dispatching message to Safari Extension: \(error)")
-            }
+        // Write the chosen WebExtension tab id to the shared App Group and post
+        // a Darwin notification. The extension's native handler (still holding
+        // the sendNativeMessage request open) reads it and resolves back to
+        // background.js, which performs browser.tabs.update with that exact id.
+        // Using the id rather than the URL means duplicate-URL tabs are handled
+        // correctly.
+        if let sharedDefaults = UserDefaults(suiteName: "group.personal.safari-tab-switcher") {
+            sharedDefaults.set(tab.id, forKey: "selectedTabId")
         }
+
+        let notifyCenter = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterPostNotification(
+            notifyCenter,
+            CFNotificationName("TabSwitcherSelectionDarwin" as CFString),
+            nil, nil, true
+        )
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
