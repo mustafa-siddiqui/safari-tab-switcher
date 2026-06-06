@@ -181,7 +181,7 @@ struct SwitcherView: View {
     @State private var eventMonitor: Any?
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             // Horizontal list of icons
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -206,20 +206,14 @@ struct SwitcherView: View {
             }
             .frame(height: 100)
 
-            // Selected Tab Info
+            // Selected tab title
             if manager.tabs.indices.contains(manager.selectedIndex) {
-                let selectedTab = manager.tabs[manager.selectedIndex]
-                VStack(spacing: 6) {
-                    Text(selectedTab.title)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                    Text(shortenUrl(selectedTab.url))
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 20)
+                Text(manager.tabs[manager.selectedIndex].title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 24)
             }
         }
         .frame(width: 550, height: 200)
@@ -279,11 +273,6 @@ struct SwitcherView: View {
             return event
         }
     }
-    
-    private func shortenUrl(_ urlString: String) -> String {
-        guard let url = URL(string: urlString), let host = url.host else { return urlString }
-        return host + url.path
-    }
 }
 
 struct AppIconView: View {
@@ -291,27 +280,77 @@ struct AppIconView: View {
     let isSelected: Bool
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? Color.primary.opacity(0.1) : Color.clear)
-                .frame(width: 72, height: 72)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isSelected ? Color.primary.opacity(0.2) : Color.clear, lineWidth: 2)
-                )
-
-            // Initial fallback
-            Text(getInitials(tab.title))
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(isSelected ? .primary : .secondary)
-        }
-        .scaleEffect(isSelected ? 1.05 : 1.0)
+        RoundedRectangle(cornerRadius: 16)
+            .fill(isSelected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
+            .frame(width: 76, height: 76)
+            .overlay(
+                FaviconView(urlString: tab.favicon, title: tab.title)
+                    .frame(width: 40, height: 40)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
+            )
+            .scaleEffect(isSelected ? 1.08 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
-    
-    private func getInitials(_ title: String) -> String {
+}
+
+/// Loads a tab's favicon (http(s) or data: URI), falling back to the title's
+/// initial letter while loading or when no favicon is available.
+struct FaviconView: View {
+    let urlString: String?
+    let title: String
+
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(6)
+            } else {
+                Text(initial)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .task(id: urlString) {
+            await loadFavicon()
+        }
+    }
+
+    private var initial: String {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if clean.isEmpty { return "🌐" }
-        return String(clean.prefix(1)).uppercased()
+        return clean.isEmpty ? "🌐" : String(clean.prefix(1)).uppercased()
+    }
+
+    private func loadFavicon() async {
+        guard let urlString = urlString,
+              !urlString.isEmpty,
+              let url = URL(string: urlString) else {
+            image = nil
+            return
+        }
+
+        // data: URIs aren't handled by URLSession, so decode them directly.
+        if url.scheme == "data" {
+            if let comma = urlString.firstIndex(of: ","),
+               let data = Data(base64Encoded: String(urlString[urlString.index(after: comma)...])),
+               let decoded = NSImage(data: data) {
+                image = decoded
+            }
+            return
+        }
+
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let decoded = NSImage(data: data) else {
+            return
+        }
+        image = decoded
     }
 }
 
