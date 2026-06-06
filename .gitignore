@@ -1,6 +1,10 @@
 # XCode
 xcuserdata/
+xcshareddata/
+
+build/
 
 # macos
 *.DS_Store
+.DS_Store
 
