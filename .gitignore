@@ -1,2 +1,6 @@
 # XCode
 xcuserdata/
+
+# macos
+*.DS_Store
+
