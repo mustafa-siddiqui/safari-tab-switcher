@@ -9,6 +9,7 @@ import Cocoa
 import SwiftUI
 import SafariServices
 import Combine
+import ServiceManagement
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -19,7 +20,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Run as a background agent (hide from Dock)
         NSApp.setActivationPolicy(.accessory)
-        
+
+        // Register as a login item so the agent is always running to receive
+        // the Darwin notification posted by the Safari extension. Without this,
+        // the extension fires but nothing listens (the overlay never appears).
+        registerAsLoginItem()
+
         // Listen for the Darwin Notification from the extension
         let notifyCenter = CFNotificationCenterGetDarwinNotifyCenter()
         let notificationName = CFNotificationName("ShowTabSwitcherDarwin" as CFString)
@@ -39,6 +45,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    func registerAsLoginItem() {
+        do {
+            if SMAppService.mainApp.status != .enabled {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            print("Failed to register as login item: \(error)")
+        }
+    }
+
     func handleDarwinNotification() {
         // Read the tabs from the shared App Group
         guard let sharedDefaults = UserDefaults(suiteName: "group.personal.safari-tab-switcher"),
@@ -216,9 +232,9 @@ struct SwitcherView: View {
         .onAppear {
             setupEventMonitor()
             
-            // Check if Control key was already released before the window appeared
+            // Check if Command key was already released before the window appeared
             // If so, execute the switch immediately (like a quick tap of Cmd+Tab)
-            if !NSEvent.modifierFlags.contains(.control) {
+            if !NSEvent.modifierFlags.contains(.command) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     manager.selectCurrent()
                 }
@@ -233,13 +249,13 @@ struct SwitcherView: View {
     
     private func setupEventMonitor() {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { event in
-            // Listen for Control key release
+            // Listen for Command key release
             if event.type == .flagsChanged {
-                if !event.modifierFlags.contains(.control) {
+                if !event.modifierFlags.contains(.command) {
                     manager.selectCurrent()
                     return nil
                 }
-            } 
+            }
             // Listen for 'K' key to cycle, or Right/Left arrows
             else if event.type == .keyDown {
                 if event.keyCode == 40 { // 'k' key
