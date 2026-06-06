@@ -186,6 +186,7 @@ struct SwitcherView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
+                        Spacer(minLength: 0)
                         ForEach(Array(manager.tabs.enumerated()), id: \.element.id) { index, tab in
                             AppIconView(tab: tab, isSelected: index == manager.selectedIndex)
                                 .id(index)
@@ -194,8 +195,9 @@ struct SwitcherView: View {
                                     manager.selectCurrent()
                                 }
                         }
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 24)
+                    .frame(minWidth: 550) // Match or exceed window width to allow Spacers to work
                     .padding(.vertical, 16)
                 }
                 .onChange(of: manager.selectedIndex) { newIndex in
