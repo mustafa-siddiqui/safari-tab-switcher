@@ -228,9 +228,9 @@ struct SwitcherView: View {
         .onAppear {
             setupEventMonitor()
             
-            // Check if Command key was already released before the window appeared
-            // If so, execute the switch immediately (like a quick tap of Cmd+Tab)
-            if !NSEvent.modifierFlags.contains(.command) {
+            // Check if Control key was already released before the window appeared
+            // If so, execute the switch immediately (like a quick tap of Ctrl+Tab)
+            if !NSEvent.modifierFlags.contains(.control) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     manager.selectCurrent()
                 }
@@ -245,16 +245,16 @@ struct SwitcherView: View {
     
     private func setupEventMonitor() {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { event in
-            // Listen for Command key release
+            // Listen for Control key release
             if event.type == .flagsChanged {
-                if !event.modifierFlags.contains(.command) {
+                if !event.modifierFlags.contains(.control) {
                     manager.selectCurrent()
                     return nil
                 }
             }
-            // Listen for 'K' key to cycle, or Right/Left arrows
+            // Listen for 'E' key to cycle, or Right/Left arrows
             else if event.type == .keyDown {
-                if event.keyCode == 40 { // 'k' key
+                if event.keyCode == 14 { // 'e' key
                     let forward = !event.modifierFlags.contains(.shift)
                     manager.moveSelection(delta: forward ? 1 : -1)
                     return nil

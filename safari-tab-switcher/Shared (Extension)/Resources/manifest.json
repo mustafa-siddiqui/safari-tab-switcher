@@ -24,8 +24,8 @@
     "commands": {
         "toggle-switcher": {
             "suggested_key": {
-                "default": "Ctrl+K",
-                "mac": "Command+K"
+                "default": "Ctrl+E",
+                "mac": "MacCtrl+E"
             },
             "description": "Open Tab Switcher"
         }
