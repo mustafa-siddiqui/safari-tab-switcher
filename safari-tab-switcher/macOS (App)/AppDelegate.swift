@@ -40,7 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.switchTo(tab: selectedTab)
             self?.switcherWindow?.orderOut(nil)
             if let safariApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first {
-                safariApp.activate(options: .activateIgnoringOtherApps)
+                safariApp.activate()
             }
         }
     }
@@ -84,23 +84,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if switcherWindow == nil {
             let view = SwitcherView(manager: tabManager)
             let hostingView = NSHostingView(rootView: view)
-            
+            // Let the window track the SwiftUI view's intrinsic size so the
+            // Liquid Glass shape isn't clipped and the drop shadow hugs it.
+            hostingView.sizingOptions = [.standardBounds]
+
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 600, height: 450),
+                contentRect: NSRect(x: 0, y: 0, width: 560, height: 220),
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered, defer: false
             )
-            
+
             window.isOpaque = false
             window.backgroundColor = .clear
             window.hasShadow = true
             window.level = .floating
             window.contentView = hostingView
+            window.setContentSize(hostingView.fittingSize)
             window.center()
-            
+
             // Allow the window to receive keyboard events even as a nonactivating panel
             window.makeKeyAndOrderFront(nil)
-            
+
             self.switcherWindow = window
         } else {
             self.switcherWindow?.center()
@@ -187,51 +191,58 @@ struct SwitcherView: View {
     @ObservedObject var manager: TabManager
     @State private var eventMonitor: Any?
 
+    @Namespace private var glassNamespace
+
     var body: some View {
-        VStack(spacing: 12) {
-            // Horizontal list of icons
+        VStack(spacing: 14) {
+            // Horizontal row of tab icons inside a single Liquid Glass surface,
+            // mirroring the macOS 26 cmd+tab switcher bar.
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        Spacer(minLength: 0)
-                        ForEach(Array(manager.tabs.enumerated()), id: \.element.id) { index, tab in
-                            AppIconView(tab: tab, isSelected: index == manager.selectedIndex)
+                    GlassEffectContainer(spacing: 14) {
+                        HStack(spacing: 14) {
+                            ForEach(Array(manager.tabs.enumerated()), id: \.element.id) { index, tab in
+                                AppIconView(
+                                    tab: tab,
+                                    isSelected: index == manager.selectedIndex,
+                                    namespace: glassNamespace
+                                )
                                 .id(index)
                                 .onTapGesture {
                                     manager.selectedIndex = index
                                     manager.selectCurrent()
                                 }
+                            }
                         }
-                        Spacer(minLength: 0)
+                        .padding(16)
                     }
-                    .frame(minWidth: 550) // Match or exceed window width to allow Spacers to work
-                    .padding(.vertical, 16)
                 }
-                .onChange(of: manager.selectedIndex) { newIndex in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                .onChange(of: manager.selectedIndex) { _, newIndex in
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                         proxy.scrollTo(newIndex, anchor: .center)
                     }
                 }
             }
-            .frame(height: 100)
+            .frame(height: 108)
 
             // Selected tab title
             if manager.tabs.indices.contains(manager.selectedIndex) {
                 Text(manager.tabs[manager.selectedIndex].title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.primary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .padding(.horizontal, 24)
+                    .padding(.bottom, 4)
             }
         }
-        .frame(width: 550, height: 200)
-        .background(VisualEffectView().ignoresSafeArea())
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-        )
+        .padding(.vertical, 18)
+        .frame(width: 560)
+        .fixedSize(horizontal: false, vertical: true)
+        // .clear is the more transparent Liquid Glass variant — it lets much more
+        // of the backdrop through instead of reading as a tinted slab, which is the
+        // see-through look we're after on both light and dark pages.
+        .glassEffect(.clear, in: .rect(cornerRadius: 28))
         .onAppear {
             setupEventMonitor()
             
@@ -287,21 +298,35 @@ struct SwitcherView: View {
 struct AppIconView: View {
     let tab: TabItem
     let isSelected: Bool
+    let namespace: Namespace.ID
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(isSelected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.04))
-            .frame(width: 76, height: 76)
-            .overlay(
-                FaviconView(urlString: tab.favicon, title: tab.title)
-                    .frame(width: 40, height: 40)
+        FaviconView(urlString: tab.favicon, title: tab.title)
+            .frame(width: 44, height: 44)
+            .padding(14)
+            .glassEffect(
+                isSelected ? .clear.tint(.accentColor.opacity(0.275)).interactive() : .clear,
+                in: .rect(cornerRadius: 18)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
-            )
-            .scaleEffect(isSelected ? 1.08 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+            // A solid border on the selected pill guarantees it's distinguishable
+            // even when the favicon is white-on-white or black-on-black with no
+            // background variance for the clear glass to pick up. The thin dark
+            // outer edge keeps the accent line legible on light backgrounds too,
+            // so the border never "bleeds" into a same-colored page.
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 18)
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .inset(by: -1)
+                                .strokeBorder(Color.black.opacity(0.25), lineWidth: 1)
+                        )
+                }
+            }
+            .glassEffectID(tab.id, in: namespace)
+            .scaleEffect(isSelected ? 1.04 : 1.0)
+            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
     }
 }
 
@@ -363,15 +388,3 @@ struct FaviconView: View {
     }
 }
 
-// macOS Frosted Glass background
-struct VisualEffectView: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.material = .hudWindow // Darker, more native floating panel look
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
-}
