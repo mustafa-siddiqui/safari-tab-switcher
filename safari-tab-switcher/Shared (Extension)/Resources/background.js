@@ -1,4 +1,46 @@
 let tabAccessOrder = [];
+let saveTimeout = null;
+
+// Load state from storage on startup
+async function loadState() {
+    try {
+        const data = await browser.storage.local.get('tabAccessOrder');
+        if (data.tabAccessOrder) {
+            tabAccessOrder = data.tabAccessOrder;
+        }
+        
+        // Reconcile with actual open tabs (Safari can kill the worker)
+        const allTabs = await browser.tabs.query({});
+        const currentTabIds = new Set(allTabs.map(t => t.id));
+        
+        // Remove tabs that no longer exist
+        tabAccessOrder = tabAccessOrder.filter(id => currentTabIds.has(id));
+        
+        // Add existing tabs that aren't in our list yet (e.g. opened while extension was inactive)
+        for (const tabId of currentTabIds) {
+            if (!tabAccessOrder.includes(tabId)) {
+                tabAccessOrder.push(tabId);
+            }
+        }
+    } catch (e) {
+        console.error("Error loading state:", e);
+    }
+}
+
+// Debounced save to minimize disk writes
+function debouncedSave() {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+        try {
+            await browser.storage.local.set({ tabAccessOrder });
+        } catch (e) {
+            console.error("Error saving state:", e);
+        }
+    }, 2000); // 2 second debounce
+}
+
+// Initialize
+loadState();
 
 // Track tab activation to maintain MRU (Most Recently Used) list
 browser.tabs.onActivated.addListener((activeInfo) => {
@@ -9,6 +51,7 @@ browser.tabs.onRemoved.addListener((tabId) => {
     const index = tabAccessOrder.indexOf(tabId);
     if (index > -1) {
         tabAccessOrder.splice(index, 1);
+        debouncedSave();
     }
 });
 
@@ -20,9 +63,10 @@ function updateTabAccessOrder(tabId) {
     tabAccessOrder.unshift(tabId);
     // Keep reasonable limit
     tabAccessOrder = tabAccessOrder.slice(0, 50);
+    debouncedSave();
 }
 
-// Listen for keyboard command (Ctrl+K)
+// Listen for keyboard command (Ctrl+E)
 browser.commands.onCommand.addListener(async (command) => {
     if (command === 'toggle-switcher') {
         await handleToggleSwitcher();
