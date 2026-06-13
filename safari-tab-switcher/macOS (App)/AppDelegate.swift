@@ -106,6 +106,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.switcherWindow?.center()
             self.switcherWindow?.makeKeyAndOrderFront(nil)
         }
+
+        // Ensure any previous selection is cleared in the App Group
+        if let sharedDefaults = UserDefaults(suiteName: "group.personal.safari-tab-switcher") {
+            sharedDefaults.removeObject(forKey: "selectedTabId")
+            sharedDefaults.synchronize()
+        }
         
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -119,6 +125,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // correctly.
         if let sharedDefaults = UserDefaults(suiteName: "group.personal.safari-tab-switcher") {
             sharedDefaults.set(tab.id, forKey: "selectedTabId")
+            sharedDefaults.synchronize()
         }
 
         let notifyCenter = CFNotificationCenterGetDarwinNotifyCenter()
