@@ -40,7 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.switchTo(tab: selectedTab)
             self?.switcherWindow?.orderOut(nil)
             if let safariApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first {
-                safariApp.activate(options: .activateIgnoringOtherApps)
+                safariApp.activate()
             }
         }
     }
@@ -217,7 +217,7 @@ struct SwitcherView: View {
                         .padding(16)
                     }
                 }
-                .onChange(of: manager.selectedIndex) { newIndex in
+                .onChange(of: manager.selectedIndex) { _, newIndex in
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                         proxy.scrollTo(newIndex, anchor: .center)
                     }
@@ -239,7 +239,10 @@ struct SwitcherView: View {
         .padding(.vertical, 18)
         .frame(width: 560)
         .fixedSize(horizontal: false, vertical: true)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        // .clear is the more transparent Liquid Glass variant — it lets much more
+        // of the backdrop through instead of reading as a tinted slab, which is the
+        // see-through look we're after on both light and dark pages.
+        .glassEffect(.clear, in: .rect(cornerRadius: 28))
         .onAppear {
             setupEventMonitor()
             
@@ -302,11 +305,27 @@ struct AppIconView: View {
             .frame(width: 44, height: 44)
             .padding(14)
             .glassEffect(
-                isSelected ? .regular.tint(.accentColor.opacity(0.55)).interactive() : .clear,
+                isSelected ? .clear.tint(.accentColor.opacity(0.275)).interactive() : .clear,
                 in: .rect(cornerRadius: 18)
             )
+            // A solid border on the selected pill guarantees it's distinguishable
+            // even when the favicon is white-on-white or black-on-black with no
+            // background variance for the clear glass to pick up. The thin dark
+            // outer edge keeps the accent line legible on light backgrounds too,
+            // so the border never "bleeds" into a same-colored page.
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 18)
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .inset(by: -1)
+                                .strokeBorder(Color.black.opacity(0.25), lineWidth: 1)
+                        )
+                }
+            }
             .glassEffectID(tab.id, in: namespace)
-            .scaleEffect(isSelected ? 1.08 : 1.0)
+            .scaleEffect(isSelected ? 1.04 : 1.0)
             .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
     }
 }
