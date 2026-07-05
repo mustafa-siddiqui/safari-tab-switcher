@@ -1,5 +1,5 @@
 let tabAccessOrder = [];
-let saveTimeout = null;
+let saveTimeout;
 
 // Load state from storage on startup
 async function loadState() {
@@ -29,14 +29,10 @@ async function loadState() {
 
 // Debounced save to minimize disk writes
 function debouncedSave() {
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(async () => {
-        try {
-            await browser.storage.local.set({ tabAccessOrder });
-        } catch (e) {
-            console.error("Error saving state:", e);
-        }
-    }, 2000); // 2 second debounce
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        browser.storage.local.set({ tabAccessOrder }).catch(e => console.error("Error saving state:", e));
+    }, 2000);
 }
 
 // Initialize
@@ -61,8 +57,6 @@ function updateTabAccessOrder(tabId) {
         tabAccessOrder.splice(index, 1);
     }
     tabAccessOrder.unshift(tabId);
-    // Keep reasonable limit
-    tabAccessOrder = tabAccessOrder.slice(0, 50);
     debouncedSave();
 }
 
