@@ -66,7 +66,7 @@ function updateTabAccessOrder(tabId) {
     debouncedSave();
 }
 
-// Listen for keyboard command (Ctrl+E)
+// Listen for keyboard command (default: Cmd+E, configurable in Safari settings)
 browser.commands.onCommand.addListener(async (command) => {
     if (command === 'toggle-switcher') {
         await handleToggleSwitcher();

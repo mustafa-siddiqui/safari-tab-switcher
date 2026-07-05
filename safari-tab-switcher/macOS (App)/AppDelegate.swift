@@ -246,9 +246,8 @@ struct SwitcherView: View {
         .onAppear {
             setupEventMonitor()
             
-            // Check if Control key was already released before the window appeared
-            // If so, execute the switch immediately (like a quick tap of Ctrl+Tab)
-            if !NSEvent.modifierFlags.contains(.control) {
+            // If neither Command nor Control is held, treat this as a quick-tap
+            if !NSEvent.modifierFlags.contains(.command) && !NSEvent.modifierFlags.contains(.control) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     manager.selectCurrent()
                 }
@@ -263,9 +262,9 @@ struct SwitcherView: View {
     
     private func setupEventMonitor() {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { event in
-            // Listen for Control key release
+            // Confirm selection when the modifier key is released
             if event.type == .flagsChanged {
-                if !event.modifierFlags.contains(.control) {
+                if !event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.control) {
                     manager.selectCurrent()
                     return nil
                 }
